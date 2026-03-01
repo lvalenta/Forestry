@@ -15,10 +15,10 @@ let swiftSettings: [SwiftSetting] = [
 let package = Package(
     name: "ForestryLogger",
     platforms: [
-        .iOS(.v11),
+        .iOS(.v15),
         .macOS(.v11),
-        .tvOS(.v11),
-        .watchOS(.v7)
+        .tvOS(.v15),
+        .watchOS(.v8)
     ],
     products: [
         .library(name: "ForestryLoggerLibrary", targets: ["ForestryLoggerLibrary"]),
@@ -30,10 +30,10 @@ let package = Package(
         .library(name: "ForestryOSLogSupport", targets: ["ForestryOSLogSupport"])
     ],
     dependencies: [
-        .package(url: "https://github.com/DataDog/dd-sdk-ios", .upToNextMajor(from: .init(2, 7, 1))),
+        .package(url: "https://github.com/DataDog/dd-sdk-ios", Version(2,7,1)..<Version(4,0,0)),
         .package(url: "https://github.com/SwiftyBeaver/SwiftyBeaver", .upToNextMajor(from: .init(1, 9, 6))),
         .package(url: "https://github.com/LogRocket/logrocket-ios-swift-package", .upToNextMajor(from: .init(1, 12, 0))),
-        .package(url: "https://github.com/getsentry/sentry-cocoa.git", .upToNextMajor(from: .init(8, 3, 0))),
+        .package(url: "https://github.com/getsentry/sentry-cocoa.git", Version(8,3,0)..<Version(10,0,0)),
         .package(url: "https://github.com/apple/swift-docc-plugin", branch: "main")
     ],
     targets: [
