@@ -7,6 +7,7 @@ import UIKit
 
 public extension FileLogger {
     /// Presents UIActivityViewController on UIViewController with the fileToShare.
+    @MainActor
     func shareLogFile(on viewController: UIViewController) {
         guard let file = configuration.logFileURL else { return }
         let fileToShare: [Any] = [file]

@@ -5,7 +5,7 @@
 import Foundation
 import ForestryLoggerLibrary
 
-final class LoggerServiceMock: LoggerService {
+final class LoggerServiceMock: LoggerService, @unchecked Sendable {
     var minimalLogLevel: LogLevel = .info
     var logClosure: ((LogInfo) -> Void)?
     var configureUserInfoClosure: (([LogUserInfoKey: String]) -> Void)?

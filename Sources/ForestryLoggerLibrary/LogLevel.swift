@@ -5,7 +5,7 @@
 
 /// A level of log that determines to which services should the message be logged to
 /// LogLevel also includes the icon that is used within a formatted message
-public enum LogLevel: Int, Comparable, Sendable {
+public enum LogLevel: Int, Comparable, Sendable, CaseIterable {
     case verbose
     case debug
     case info
