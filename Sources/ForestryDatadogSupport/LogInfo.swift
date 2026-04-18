@@ -16,7 +16,7 @@ extension LogInfo {
         [
             DataDogAttributeKey.file.rawValue: file,
             DataDogAttributeKey.line.rawValue: line,
-            DataDogAttributeKey.function.rawValue: function
+            DataDogAttributeKey.function.rawValue: function.description
         ]
     }
 }

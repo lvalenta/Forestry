@@ -2,201 +2,205 @@
 //  Copyright 2023 © Cleevio s.r.o. All rights reserved.
 //
 
-import Foundation
 import ForestryLoggerLibrary
-import XCTest
+import Testing
 
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-final class MyLibraryTests: XCTestCase {
-    var mockLoggerService: LoggerServiceMock!
-    var logger: ForestryLogger!
+@Suite("ForestryLogger")
+struct ForestryLoggerTests {
+    let mockLoggerService: LoggerServiceMock
+    let logger: ForestryLogger
 
-    override func setUp() {
-        super.setUp()
-        
-        mockLoggerService = LoggerServiceMock()
-        logger = .init(service: mockLoggerService)
+    init() {
+        let mock = LoggerServiceMock()
+        self.mockLoggerService = mock
+        self.logger = .init(service: mock)
     }
 
-    func testLog() {
+    @Test("log is delivered with the provided message")
+    func log() async {
         let logMessage = "LogMessage"
-        
-        let expectation = XCTestExpectation(description: "LogClosure is called")
-        
-        mockLoggerService.logClosure = { log in
-            XCTAssertEqual(log.message as? String, logMessage)
-            expectation.fulfill()
+
+        await confirmation("LogClosure is called") { confirmed in
+            mockLoggerService.logClosure = { log in
+                #expect(log.message as? String == logMessage)
+                confirmed()
+            }
+
+            logger.info(logMessage)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        
-        logger.info(logMessage)
-        
-        wait(for: [expectation], timeout: 0.1)
     }
 
-    func testLogIsNotCalledWithLowMinimumLevel() async throws {
+    @Test("log is not delivered to services with a higher minimum level")
+    func logIsNotCalledWithLowMinimumLevel() async {
         let logMessage = "LogMessage"
-        
-        mockLoggerService.minimalLogLevel = .error
-        
-        mockLoggerService.logClosure = { log in
-            XCTFail("Logger should not be called")
+
+        let mock = LoggerServiceMock()
+        mock.minimalLogLevel = .error
+
+        await confirmation("Logger should not be called", expectedCount: 0) { confirmed in
+            mock.logClosure = { _ in confirmed() }
+            let logger = ForestryLogger(service: mock)
+
+            logger.debug(logMessage)
+            logger.verbose(logMessage)
+            logger.info(logMessage)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        
-        logger.debug(logMessage)
-        logger.verbose(logMessage)
-        logger.info(logMessage)
-        
-        try await Task.sleep(nanoseconds: 100_000_000)
     }
 
-    func testUpdateUserInfo() {
-        let expectedValue = [
-            LogUserInfoKey.userID: "11341",
+    @Test("updateUserInfo forwards the full dictionary")
+    func updateUserInfo() async {
+        let expectedValue: [LogUserInfoKey: String] = [
+            .userID: "11341",
             .deviceID: "147482",
-            .custom(key: "PerfectKey"): "2422"
+            .custom(key: "PerfectKey"): "2422",
         ]
-        
-        let expectation = XCTestExpectation(description: "UpdateUserInfo is called")
-        
-        mockLoggerService.configureUserInfoClosure = { userInfo in
-            XCTAssertEqual(userInfo, expectedValue)
-            expectation.fulfill()
+
+        await confirmation("UpdateUserInfo is called") { confirmed in
+            mockLoggerService.configureUserInfoClosure = { userInfo in
+                #expect(userInfo == expectedValue)
+                confirmed()
+            }
+
+            logger.updateUserInfo(for: expectedValue)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        
-        logger.updateUserInfo(for: expectedValue)
-        
-        wait(for: [expectation], timeout: 0.1)
     }
 
-    func testUpdateUserInfoForEmptyDictionary() {
+    @Test("updateUserInfo with an empty dictionary still calls services")
+    func updateUserInfoForEmptyDictionary() async {
         let expectedValue: [LogUserInfoKey: String] = [:]
-        let expectation = XCTestExpectation(description: "UpdateUserInfo is called")
-        
-        mockLoggerService.configureUserInfoClosure = { userInfo in
-            XCTAssertEqual(userInfo, expectedValue)
-            expectation.fulfill()
+
+        await confirmation("UpdateUserInfo is called") { confirmed in
+            mockLoggerService.configureUserInfoClosure = { userInfo in
+                #expect(userInfo == expectedValue)
+                confirmed()
+            }
+
+            logger.updateUserInfo(for: expectedValue)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        
-        logger.updateUserInfo(for: expectedValue)
-        
-        wait(for: [expectation], timeout: 0.1)
     }
 
-    func testUpdateUserInfoSingleKey() {
+    @Test("updateUserInfo with a single key forwards a one-entry dictionary")
+    func updateUserInfoSingleKey() async {
         let expectedKey = LogUserInfoKey.userID
         let expectedValue = "11341"
-        
-        let expectation = XCTestExpectation(description: "UpdateUserInfo is called")
 
-        mockLoggerService.configureUserInfoClosure = { userInfo in
-            XCTAssertEqual(userInfo, [expectedKey: expectedValue])
-            expectation.fulfill()
-        }
-        
-        logger.updateUserInfo(for: expectedKey, with: expectedValue)
-        
-        wait(for: [expectation], timeout: 0.1)
-    }
-
-    func testRemoveUserInfo() {
-        let expectedKeys = [LogUserInfoKey.deviceID, .email, .custom(key: "Perfect key")]
-        let expectation = XCTestExpectation(description: "RemoveUserInfo is called")
-        let userInfoExpectation = XCTestExpectation(description: "UserInfo is called")
-
-        mockLoggerService.removeUserInfoClosure = { keys in
-            XCTAssertEqual(keys, expectedKeys)
-            expectation.fulfill()
-        }
-        
-        mockLoggerService.configureUserInfoClosure = { userInfo in
-            XCTAssertEqual(userInfo, [:])
-            userInfoExpectation.fulfill()
-        }
-        
-        logger.removeUserInfo(for: expectedKeys)
-        
-        wait(for: [expectation, userInfoExpectation], timeout: 0.1)
-    }
-
-    func testRemoveUserInfoForEmptyKeys() {
-        let expectedKeys: [LogUserInfoKey] = []
-        let expectation = XCTestExpectation(description: "RemoveUserInfo is called")
-        let userInfoExpectation = XCTestExpectation(description: "UserInfo is called")
-
-        mockLoggerService.removeUserInfoClosure = { keys in
-            XCTAssertEqual(keys, expectedKeys)
-            expectation.fulfill()
-        }
-        
-        mockLoggerService.configureUserInfoClosure = { userInfo in
-            XCTAssertEqual(userInfo, [:])
-            userInfoExpectation.fulfill()
-        }
-        
-        logger.removeUserInfo(for: expectedKeys)
-        
-        wait(for: [expectation, userInfoExpectation], timeout: 0.1)
-    }
-
-    func testRemoveUserInfoForSingleKey() {
-        let expectedKey = LogUserInfoKey.email
-        let expectation = XCTestExpectation(description: "RemoveUserInfo is called")
-        let userInfoExpectation = XCTestExpectation(description: "UserInfo is called")
-
-        mockLoggerService.removeUserInfoClosure = { keys in
-            XCTAssertEqual(keys, [expectedKey])
-            expectation.fulfill()
-        }
-        
-        mockLoggerService.configureUserInfoClosure = { userInfo in
-            XCTAssertEqual(userInfo, [:])
-            userInfoExpectation.fulfill()
-        }
-        
-        logger.removeUserInfo(for: expectedKey)
-        
-        wait(for: [expectation, userInfoExpectation], timeout: 0.1)
-    }
-
-    func testRemoveUserInfoPreservesPreviouslySetUserInfo() {
-        let dictionary = [
-            LogUserInfoKey.deviceID: "13131",
-            .email: "lukas.valenta@cleevio.com",
-            .custom(key: "Perfect key"): "42421"
-            
-        ]
-        
-        let userInfoExpectation = XCTestExpectation(description: "UserInfo is called")
-        let userInfoSecondExpectation = XCTestExpectation(description: "UserInfo is called")
-
-        var userInfoHasBeenCalled = false
-        
-        mockLoggerService.configureUserInfoClosure = { userInfo in
-            if !userInfoHasBeenCalled {
-                XCTAssertEqual(userInfo, dictionary)
-                userInfoHasBeenCalled = true
-                userInfoExpectation.fulfill()
-            } else {
-                XCTAssertEqual(userInfo.count, 2)
-                XCTAssertEqual(userInfo[.deviceID], "13131")
-                XCTAssertEqual(userInfo[.custom(key: "Perfect key")], "42421")
-                userInfoSecondExpectation.fulfill()
+        await confirmation("UpdateUserInfo is called") { confirmed in
+            mockLoggerService.configureUserInfoClosure = { userInfo in
+                #expect(userInfo == [expectedKey: expectedValue])
+                confirmed()
             }
+
+            logger.updateUserInfo(for: expectedKey, with: expectedValue)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
         }
-        
-        logger.updateUserInfo(for: dictionary)
-        
-        logger.removeUserInfo(for: .email)
-        
-        wait(for: [userInfoExpectation, userInfoSecondExpectation], timeout: 0.1)
     }
 
-    // Here just to ensure logger does not crash
-    func testEmptyLogger() {
-        logger = .init(services: [])
-        
+    @Test("removeUserInfo forwards the keys and reconfigures stored user info")
+    func removeUserInfo() async {
+        let expectedKeys: [LogUserInfoKey] = [.deviceID, .email, .custom(key: "Perfect key")]
+
+        await confirmation("RemoveUserInfo and configureUserInfo are called", expectedCount: 2) { confirmed in
+            mockLoggerService.removeUserInfoClosure = { keys in
+                #expect(keys == expectedKeys)
+                confirmed()
+            }
+            mockLoggerService.configureUserInfoClosure = { userInfo in
+                #expect(userInfo == [:])
+                confirmed()
+            }
+
+            logger.removeUserInfo(for: expectedKeys)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+    }
+
+    @Test("removeUserInfo with empty keys still reconfigures stored user info")
+    func removeUserInfoForEmptyKeys() async {
+        let expectedKeys: [LogUserInfoKey] = []
+
+        await confirmation("RemoveUserInfo and configureUserInfo are called", expectedCount: 2) { confirmed in
+            mockLoggerService.removeUserInfoClosure = { keys in
+                #expect(keys == expectedKeys)
+                confirmed()
+            }
+            mockLoggerService.configureUserInfoClosure = { userInfo in
+                #expect(userInfo == [:])
+                confirmed()
+            }
+
+            logger.removeUserInfo(for: expectedKeys)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+    }
+
+    @Test("removeUserInfo with a single key forwards the key")
+    func removeUserInfoForSingleKey() async {
+        let expectedKey = LogUserInfoKey.email
+
+        await confirmation("RemoveUserInfo and configureUserInfo are called", expectedCount: 2) { confirmed in
+            mockLoggerService.removeUserInfoClosure = { keys in
+                #expect(keys == [expectedKey])
+                confirmed()
+            }
+            mockLoggerService.configureUserInfoClosure = { userInfo in
+                #expect(userInfo == [:])
+                confirmed()
+            }
+
+            logger.removeUserInfo(for: expectedKey)
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+    }
+
+    @Test("removeUserInfo preserves previously set keys")
+    func removeUserInfoPreservesPreviouslySetUserInfo() async {
+        let dictionary: [LogUserInfoKey: String] = [
+            .deviceID: "13131",
+            .email: "lukas.valenta@cleevio.com",
+            .custom(key: "Perfect key"): "42421",
+        ]
+
+        await confirmation("configureUserInfo is called twice", expectedCount: 2) { confirmed in
+            nonisolated(unsafe) var configureCallCount = 0
+            mockLoggerService.configureUserInfoClosure = { userInfo in
+                if configureCallCount == 0 {
+                    #expect(userInfo == dictionary)
+                } else {
+                    #expect(userInfo.count == 2)
+                    #expect(userInfo[.deviceID] == "13131")
+                    #expect(userInfo[.custom(key: "Perfect key")] == "42421")
+                }
+                configureCallCount += 1
+                confirmed()
+            }
+
+            logger.updateUserInfo(for: dictionary)
+            logger.removeUserInfo(for: .email)
+
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+    }
+
+    @Test("empty logger does not crash")
+    func emptyLogger() async {
+        let logger = ForestryLogger(services: [])
+
         logger.info("Message")
         logger.updateUserInfo(for: .email, with: "kgkfd")
         logger.removeUserInfo(for: .email)
+
+        try? await Task.sleep(nanoseconds: 50_000_000)
     }
 }

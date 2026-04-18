@@ -6,7 +6,11 @@ import Foundation
 
 public protocol LoggerService {
     /// A minimal log level that this service should be used for.
-    var minimalLogLevel: LogLevel { get set }
+    ///
+    /// This value is read once when the service is passed to `ForestryLogger`
+    /// and is cached in a precomputed routing table for fast lookup.
+    /// Mutating it afterwards has no effect on log routing.
+    var minimalLogLevel: LogLevel { get }
 
     /// Logs the message in services based on minimumLogLevel.
     /// The log may be executed from a different Thread than the one that called the function as the logging happens asynchronously.

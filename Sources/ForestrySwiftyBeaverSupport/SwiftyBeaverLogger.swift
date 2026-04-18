@@ -24,7 +24,7 @@ public struct SwiftyBeaverLogger: LoggerService {
             level: info.level.asSwiftyBeaverLevel,
             message: info.message,
             file: info.file,
-            function: info.function,
+            function: info.function.description,
             line: info.line
         )
     }
