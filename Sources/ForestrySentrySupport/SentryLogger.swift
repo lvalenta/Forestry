@@ -29,6 +29,14 @@ public struct SentryLogger: LoggerService {
             scope.setTags(dictionary.stringKeyedDictionary)
         }
     }
+
+    public func removeUserInfo(_ keys: [LogUserInfoKey]) {
+        SentrySDK.configureScope { scope in
+            for key in keys {
+                scope.removeTag(key: key.rawValue)
+            }
+        }
+    }
 }
 
 private extension LogLevel {
